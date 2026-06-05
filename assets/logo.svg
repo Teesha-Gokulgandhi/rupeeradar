@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" role="img" aria-label="RupeeRadar">
+  <defs>
+    <linearGradient id="radarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a9fd4"/>
+      <stop offset="100%" stop-color="#2a6f97"/>
+    </linearGradient>
+    <linearGradient id="coinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2ecc9a"/>
+      <stop offset="100%" stop-color="#1a7f5a"/>
+    </linearGradient>
+  </defs>
+  <!-- Radar rings -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="url(#radarGrad)" stroke-width="2" opacity=".25"/>
+  <circle cx="32" cy="32" r="20" fill="none" stroke="url(#radarGrad)" stroke-width="2" opacity=".45"/>
+  <circle cx="32" cy="32" r="12" fill="none" stroke="url(#radarGrad)" stroke-width="2" opacity=".7"/>
+  <!-- Radar sweep -->
+  <path d="M32 32 L32 6 A26 26 0 0 1 52 18 Z" fill="url(#radarGrad)" opacity=".35"/>
+  <!-- Center coin -->
+  <circle cx="32" cy="32" r="10" fill="url(#coinGrad)"/>
+  <text x="32" y="37" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#fff">₹</text>
+  <!-- Blip -->
+  <circle cx="48" cy="18" r="3.5" fill="#2ecc9a"/>
+  <!-- Wordmark -->
+  <text x="76" y="38" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="26" font-weight="700" fill="#2a6f97" letter-spacing="-0.5">Rupee</text>
+  <text x="76" y="56" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="26" font-weight="700" fill="#1a7f5a" letter-spacing="-0.5">Radar</text>
+</svg>

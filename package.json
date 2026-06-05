@@ -1,0 +1,22 @@
+{
+  "name": "rupeeradar",
+  "version": "1.0.0",
+  "description": "RupeeRadar — Track every rupee. Miss nothing. Full-stack expense tracker.",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Teesha-Gokulgandhi/rupeeradar.git"
+  },
+  "keywords": [
+    "expense-tracker",
+    "budget",
+    "finance",
+    "rupee",
+    "rupeeradar",
+    "decodeLabs",
+    "internship",
+    "full-stack"
+  ],
+  "author": "Teesha Gokugandhi"
+}

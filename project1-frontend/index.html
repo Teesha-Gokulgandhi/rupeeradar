@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="RupeeRadar — Track every rupee. Miss nothing. Expenses, budgets, and analytics." />
+    <meta name="theme-color" content="#2a6f97" />
+    <title>RupeeRadar — Expense Tracker</title>
+    <link rel="icon" href="../assets/logo-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Delete confirmation modal -->
+    <div id="deleteModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+      <div class="modal">
+        <h3 class="modal-title" id="modalTitle">Delete Expense?</h3>
+        <p class="modal-body">This action cannot be undone.</p>
+        <div class="modal-actions">
+          <button id="modalCancel" type="button" class="secondary-button">Cancel</button>
+          <button id="modalConfirm" type="button" class="danger-button">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app">
+      <!-- ─── HEADER ─── -->
+      <header class="site-header">
+        <div class="header-inner">
+          <div class="brand">
+            <img class="brand-logo" src="../assets/logo-mark.svg" alt="" width="48" height="48" aria-hidden="true" />
+            <div>
+              <h1 class="brand-title">RupeeRadar</h1>
+              <p class="brand-subtitle">Track every rupee. Miss nothing.</p>
+            </div>
+          </div>
+
+          <nav class="top-nav" aria-label="Primary">
+            <a class="nav-link" href="#summary">Overview</a>
+            <a class="nav-link" href="#analytics">Analytics</a>
+            <a class="nav-link nav-link--accent" href="#add-expense">+ Add</a>
+            <a class="nav-link" href="#expenses">Expenses</a>
+          </nav>
+        </div>
+      </header>
+
+      <main class="page-grid">
+
+        <!-- ─── ANALYTICS DASHBOARD (full width) ─── -->
+        <section class="card analytics analytics-full" id="analytics" aria-labelledby="analytics-title">
+          <div class="section-header">
+            <h2 class="section-title" id="analytics-title">Analytics Dashboard</h2>
+            <div class="analytics-controls">
+              <div class="form-field form-field--inline">
+                <label for="analyticsMonthSelect" class="sr-only">Select month</label>
+                <select id="analyticsMonthSelect" class="filter-select" aria-label="Select month for analytics"></select>
+              </div>
+              <button type="button" id="exportCsvBtn" class="secondary-button secondary-button--sm">Export CSV</button>
+            </div>
+          </div>
+
+          <div class="analytics-grid">
+            <!-- KPI cards -->
+            <div class="analytics-kpis" role="region" aria-label="Key metrics">
+              <article class="kpi-card kpi-card--primary">
+                <p class="kpi-label">Total Spent</p>
+                <p class="kpi-value" id="kpiTotal">₹0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label">Transactions</p>
+                <p class="kpi-value" id="kpiCount">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label">Daily Average</p>
+                <p class="kpi-value" id="kpiAvg">₹0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label">Highest Expense</p>
+                <p class="kpi-value" id="kpiHighest">—</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label">Budget Used</p>
+                <p class="kpi-value" id="kpiBudgetPct">—</p>
+              </article>
+            </div>
+
+            <!-- Month comparison -->
+            <div class="compare-panel" id="monthCompare" role="region" aria-label="Month over month comparison">
+              <h3 class="analytics-subtitle">Month vs Last Month</h3>
+              <div class="compare-grid">
+                <div class="compare-block">
+                  <p class="compare-label">This Month</p>
+                  <p class="compare-value" id="compareThis">₹0</p>
+                </div>
+                <div class="compare-block">
+                  <p class="compare-label">Last Month</p>
+                  <p class="compare-value" id="compareLast">₹0</p>
+                </div>
+                <div class="compare-block compare-block--delta">
+                  <p class="compare-label">Change</p>
+                  <span class="delta-badge" id="compareDelta">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Trend chart -->
+            <div class="chart-panel">
+              <h3 class="analytics-subtitle">Spending Trend (Last 6 Months)</h3>
+              <div class="canvas-wrap">
+                <canvas id="trendChart" width="600" height="220" role="img" aria-label="Spending trend chart"></canvas>
+              </div>
+              <p id="trendChartEmpty" class="empty-state" hidden>No spending data for this period.</p>
+            </div>
+
+            <!-- Insights -->
+            <div class="insights-panel">
+              <h3 class="analytics-subtitle">Insights</h3>
+              <ul id="insightsList" class="insights-list" aria-live="polite"></ul>
+              <p id="insightsEmpty" class="empty-state" hidden>Add expenses to see insights.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── LEFT COLUMN ─── -->
+        <div class="left-col">
+
+          <!-- Summary cards -->
+          <section class="card summary" id="summary" aria-labelledby="summary-title">
+            <div class="section-header">
+              <h2 class="section-title" id="summary-title">This Month</h2>
+              <span class="month-badge" id="monthBadge"></span>
+            </div>
+
+            <div class="stat-grid">
+              <article class="stat-card stat-card--primary">
+                <span class="stat-icon" aria-hidden="true">💸</span>
+                <div>
+                  <p class="stat-label">Total Spent</p>
+                  <p class="stat-value" id="summaryTotal">₹0</p>
+                </div>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon" aria-hidden="true">🧾</span>
+                <div>
+                  <p class="stat-label">Transactions</p>
+                  <p class="stat-value" id="summaryCount">0</p>
+                </div>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon" aria-hidden="true">📌</span>
+                <div>
+                  <p class="stat-label">Top Category</p>
+                  <p class="stat-value" id="summaryBiggestCategory">—</p>
+                </div>
+              </article>
+              <article class="stat-card">
+                <span class="stat-icon" aria-hidden="true">📅</span>
+                <div>
+                  <p class="stat-label">Daily Average</p>
+                  <p class="stat-value" id="summaryAvg">₹0</p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <!-- Budget tracker -->
+          <section class="card budget-section" id="budget-section" aria-labelledby="budget-title">
+            <div class="section-header">
+              <h2 class="section-title" id="budget-title">Monthly Budget</h2>
+              <button class="icon-button" id="editBudgetBtn" aria-label="Edit budget">✏️</button>
+            </div>
+
+            <div id="budgetDisplay">
+              <div class="budget-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="budgetBar" aria-valuenow="0" aria-label="Budget used">
+                <div class="budget-bar-fill" id="budgetBarFill"></div>
+              </div>
+              <div class="budget-labels">
+                <span id="budgetSpent">₹0 spent</span>
+                <span id="budgetRemaining">₹0 remaining</span>
+              </div>
+            </div>
+
+            <form id="budgetForm" class="budget-form" hidden>
+              <div class="form-field form-field--inline">
+                <label for="budgetInput">Set monthly budget (₹)</label>
+                <input id="budgetInput" type="number" min="1" step="1" placeholder="e.g. 15000" />
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="primary-button primary-button--sm">Save</button>
+                <button type="button" id="cancelBudgetBtn" class="secondary-button secondary-button--sm">Cancel</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- Category breakdown chart -->
+          <section class="card breakdown-section" id="breakdown-section" aria-labelledby="breakdown-title">
+            <h2 class="section-title" id="breakdown-title">Category Breakdown</h2>
+            <div id="breakdownChart" class="breakdown-chart"></div>
+            <p id="breakdownEmpty" class="empty-state" hidden>Add expenses to see a breakdown.</p>
+          </section>
+
+          <!-- Add expense form -->
+          <section class="card add-expense" id="add-expense" aria-labelledby="add-expense-title">
+            <h2 class="section-title" id="add-expense-title">Add Expense</h2>
+
+            <form id="expenseForm" class="expense-form" novalidate>
+              <div class="form-row">
+                <div class="form-field">
+                  <label for="amount">Amount (₹)</label>
+                  <div class="input-wrapper">
+                    <span class="input-prefix" aria-hidden="true">₹</span>
+                    <input
+                      id="amount"
+                      name="amount"
+                      type="number"
+                      inputmode="decimal"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      required
+                      aria-describedby="formError"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-field">
+                  <label for="date">Date</label>
+                  <input id="date" name="date" type="date" required aria-describedby="formError" />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label>Category</label>
+                <div class="category-pills" id="categoryPills" role="group" aria-label="Select category">
+                  <input type="hidden" id="category" name="category" value="" />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="note">Note <span class="label-optional">(optional)</span></label>
+                <textarea
+                  id="note"
+                  name="note"
+                  rows="2"
+                  maxlength="200"
+                  placeholder="e.g. Lunch at office canteen"
+                  aria-describedby="formError noteCount"
+                ></textarea>
+                <span class="char-count" id="noteCount">0 / 200</span>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-button">
+                  <span aria-hidden="true">＋</span> Add Expense
+                </button>
+              </div>
+
+              <p id="formError" class="form-error" role="alert" aria-live="polite"></p>
+            </form>
+          </section>
+        </div>
+
+        <!-- ─── RIGHT COLUMN (expense list) ─── -->
+        <section class="card expenses right-col" id="expenses" aria-labelledby="expenses-title">
+          <div class="section-header">
+            <h2 class="section-title" id="expenses-title">Expenses</h2>
+            <span class="expenses-total-badge" id="expensesTotalBadge" aria-live="polite"></span>
+          </div>
+
+          <!-- Filters -->
+          <div class="filters" role="search" aria-label="Filter expenses">
+            <div class="filter-search-wrapper">
+              <span class="search-icon" aria-hidden="true">🔍</span>
+              <input
+                type="search"
+                id="filterSearch"
+                class="filter-search"
+                placeholder="Search by note or category…"
+                aria-label="Search expenses"
+              />
+            </div>
+
+            <select id="filterCategory" class="filter-select" aria-label="Filter by category">
+              <option value="">All categories</option>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Bills">Bills</option>
+              <option value="Health">Health</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <select id="filterSort" class="filter-select" aria-label="Sort by">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="amount-high">Amount: high → low</option>
+              <option value="amount-low">Amount: low → high</option>
+            </select>
+
+            <button type="button" id="clearFiltersBtn" class="secondary-button secondary-button--sm" hidden>
+              Clear filters
+            </button>
+          </div>
+
+          <p id="emptyState" class="empty-state empty-state--center" hidden>
+            <span class="empty-icon" aria-hidden="true">🌿</span><br />
+            No expenses yet.<br />Add your first one above!
+          </p>
+
+          <p id="noResultsState" class="empty-state empty-state--center" hidden>
+            <span class="empty-icon" aria-hidden="true">🔎</span><br />
+            No expenses match your filters.
+          </p>
+
+          <ul id="expenseList" class="expense-list" aria-live="polite" aria-relevant="additions removals"></ul>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p><strong>RupeeRadar</strong> · DecodeLabs Internship 2026</p>
+        <p class="copyright">© 2026 Teesha Gokugandhi. All rights reserved.</p>
+      </footer>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

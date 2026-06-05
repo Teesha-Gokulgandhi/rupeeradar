@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cursor / local tooling
+.cursor/
+
+# Build / cache
+dist/
+build/
+.cache/
+coverage/
+
+# Optional local overrides
+*.local
