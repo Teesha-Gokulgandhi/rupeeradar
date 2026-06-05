@@ -2,8 +2,7 @@
   "use strict";
 
   /* ─── Constants ─────────────────────────────────────────────── */
-  const STORAGE_KEY  = "expense-tracker-expenses:v2";
-  const BUDGET_KEY   = "expense-tracker-budget:v1";
+  const API_BASE = "http://localhost:3000";
   const TOAST_DURATION = 3000;
 
   const CATEGORIES = [
@@ -18,11 +17,13 @@
   const categoryMap = Object.fromEntries(CATEGORIES.map(c => [c.name, c]));
 
   /* ─── State ──────────────────────────────────────────────────── */
-  /** @type {Array<{id:string,amount:number,category:string,date:string,note:string}>} */
+  /** @type {Array<{id:number,amount:number,category:string,date:string,note:string}>} */
   let expenses  = [];
   let budget    = 0;
   let pendingDeleteId = null;
   let selectedMonthKey = "";
+  let apiReady = false;
+  let requestInFlight = false;
 
   let filterSearch   = "";
   let filterCategory = "";
@@ -41,6 +42,8 @@
     noteCount:       $("noteCount"),
 
     expenseList:     $("expenseList"),
+    apiLoading:      $("apiLoadingState"),
+    apiError:        $("apiErrorState"),
     emptyState:      $("emptyState"),
     noResults:       $("noResultsState"),
 
@@ -92,10 +95,6 @@
 
   /* ─── Utilities ──────────────────────────────────────────────── */
   const pad2 = n => String(n).padStart(2, "0");
-
-  function uid() {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-  }
 
   function currentMonthKey() {
     const d = new Date();
@@ -194,37 +193,92 @@
     else if (months.length) el.analyticsMonthSelect.value = months[0];
   }
 
-  /* ─── Storage ────────────────────────────────────────────────── */
-  function loadExpenses() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return [];
-      return arr
-        .filter(x => x && typeof x === "object")
-        .map(x => ({
-          id:       String(x.id ?? uid()),
-          amount:   Number(x.amount),
-          category: String(x.category ?? ""),
-          date:     String(x.date ?? ""),
-          note:     String(x.note ?? ""),
-        }))
-        .filter(x => x.date && isFinite(x.amount) && x.category);
-    } catch { return []; }
+  /* ─── API client ───────────────────────────────────────────── */
+  async function apiRequest(path, options = {}) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options,
+    });
+
+    if (res.status === 204) return null;
+
+    let data = null;
+    const text = await res.text();
+    if (text) {
+      try { data = JSON.parse(text); }
+      catch { throw new Error("Invalid JSON response from API."); }
+    }
+
+    if (!res.ok) {
+      const msg = data?.details?.message
+        || data?.details?.errors?.[0]
+        || data?.error
+        || `Request failed (${res.status})`;
+      throw new Error(msg);
+    }
+
+    return data;
   }
 
-  function saveExpenses() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses)); } catch {}
+  function normalizeExpense(row) {
+    return {
+      id: Number(row.id),
+      amount: Number(row.amount),
+      category: String(row.category ?? ""),
+      date: String(row.date ?? ""),
+      note: String(row.note ?? ""),
+    };
   }
 
-  function loadBudget() {
-    const v = Number(localStorage.getItem(BUDGET_KEY));
-    return isFinite(v) && v > 0 ? v : 0;
+  async function fetchExpenses() {
+    const rows = await apiRequest("/expenses");
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map(normalizeExpense)
+      .filter(x => x.id && x.date && isFinite(x.amount) && x.category);
   }
 
-  function saveBudget() {
-    try { localStorage.setItem(BUDGET_KEY, String(budget)); } catch {}
+  async function fetchBudget(monthKey) {
+    const data = await apiRequest(`/budgets/${encodeURIComponent(monthKey)}`);
+    const amount = Number(data?.amount);
+    return isFinite(amount) && amount > 0 ? amount : 0;
+  }
+
+  async function createExpenseApi(payload) {
+    const created = await apiRequest("/expenses", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return normalizeExpense(created);
+  }
+
+  async function deleteExpenseApi(id) {
+    await apiRequest(`/expenses/${id}`, { method: "DELETE" });
+  }
+
+  async function saveBudgetApi(monthKey, amount) {
+    await apiRequest(`/budgets/${encodeURIComponent(monthKey)}`, {
+      method: "PUT",
+      body: JSON.stringify({ amount }),
+    });
+  }
+
+  function setApiLoading(loading) {
+    el.apiLoading.hidden = !loading;
+    if (loading) el.apiError.hidden = true;
+  }
+
+  function setApiError(visible) {
+    el.apiError.hidden = !visible;
+    if (visible) el.apiLoading.hidden = true;
+    el.form.querySelectorAll("input, button, select, textarea").forEach(node => {
+      node.disabled = visible;
+    });
+  }
+
+  function setFormDisabled(disabled) {
+    requestInFlight = disabled;
+    el.form.querySelector('[type="submit"]')?.toggleAttribute("disabled", disabled);
   }
 
   /* ─── Toast ──────────────────────────────────────────────────── */
@@ -593,13 +647,22 @@
       case "oldest":      list.sort((a, b) => a.date.localeCompare(b.date)); break;
       case "amount-high": list.sort((a, b) => b.amount - a.amount); break;
       case "amount-low":  list.sort((a, b) => a.amount - b.amount); break;
-      default:            list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+      default:            list.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
     }
     return list;
   }
 
   function renderExpenses() {
     el.expenseList.innerHTML = "";
+
+    if (!apiReady) {
+      el.emptyState.hidden = true;
+      el.noResults.hidden = true;
+      el.clearFiltersBtn.hidden = true;
+      el.expTotalBadge.textContent = "";
+      return;
+    }
+
     const list = filteredExpenses();
     const hasExpenses = expenses.length > 0;
     const hasResults  = list.length > 0;
@@ -687,8 +750,9 @@
   }
 
   /* ─── Form submit ────────────────────────────────────────────── */
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
+    if (!apiReady || requestInFlight) return;
     el.formError.textContent = "";
 
     const amountStr = el.amount.value.trim();
@@ -702,16 +766,25 @@
       return;
     }
 
-    expenses = [
-      { id: uid(), amount: Number(amountStr), category, date: dateStr, note: note.trim().slice(0, 200) },
-      ...expenses,
-    ];
-
-    saveExpenses();
-    renderAll();
-    clearForm();
-    toast(`${categoryMap[category]?.icon ?? ""} Expense added!`, "success");
-    el.amount.focus({ preventScroll: true });
+    setFormDisabled(true);
+    try {
+      const created = await createExpenseApi({
+        amount: Number(amountStr),
+        category,
+        date: dateStr,
+        note: note.trim().slice(0, 200),
+      });
+      expenses = [created, ...expenses];
+      renderAll();
+      clearForm();
+      toast(`${categoryMap[category]?.icon ?? ""} Expense added!`, "success");
+      el.amount.focus({ preventScroll: true });
+    } catch (error) {
+      el.formError.textContent = "⚠ " + (error.message || "Could not save expense.");
+      toast(error.message || "Could not save expense.", "error");
+    } finally {
+      setFormDisabled(false);
+    }
   }
 
   function clearForm() {
@@ -728,13 +801,21 @@
   }
 
   /* ─── Delete flow ────────────────────────────────────────────── */
-  el.modalConfirm.addEventListener("click", () => {
-    if (!pendingDeleteId) return;
-    expenses = expenses.filter(e => e.id !== pendingDeleteId);
-    saveExpenses();
-    renderAll();
+  el.modalConfirm.addEventListener("click", async () => {
+    if (!pendingDeleteId || !apiReady || requestInFlight) return;
+    const id = pendingDeleteId;
     closeDeleteModal();
-    toast("Expense deleted.", "");
+    setFormDisabled(true);
+    try {
+      await deleteExpenseApi(id);
+      expenses = expenses.filter(e => e.id !== id);
+      renderAll();
+      toast("Expense deleted.", "");
+    } catch (error) {
+      toast(error.message || "Could not delete expense.", "error");
+    } finally {
+      setFormDisabled(false);
+    }
   });
 
   el.modalCancel.addEventListener("click", closeDeleteModal);
@@ -750,15 +831,23 @@
 
   el.cancelBudgetBtn.addEventListener("click", () => { el.budgetForm.hidden = true; });
 
-  el.budgetForm.addEventListener("submit", e => {
+  el.budgetForm.addEventListener("submit", async e => {
     e.preventDefault();
+    if (!apiReady || requestInFlight) return;
     const v = Number(el.budgetInput.value);
     if (!isFinite(v) || v <= 0) { toast("Please enter a valid budget amount.", "error"); return; }
-    budget = v;
-    saveBudget();
-    el.budgetForm.hidden = true;
-    renderAll();
-    toast(`Budget set to ${fmt.format(budget)}!`, "success");
+    setFormDisabled(true);
+    try {
+      await saveBudgetApi(selectedMonthKey, v);
+      budget = v;
+      el.budgetForm.hidden = true;
+      renderAll();
+      toast(`Budget set to ${fmt.format(budget)}!`, "success");
+    } catch (error) {
+      toast(error.message || "Could not save budget.", "error");
+    } finally {
+      setFormDisabled(false);
+    }
   });
 
   /* ─── Filters ────────────────────────────────────────────────── */
@@ -774,8 +863,15 @@
   });
 
   /* ─── Analytics events ───────────────────────────────────────── */
-  el.analyticsMonthSelect.addEventListener("change", () => {
+  el.analyticsMonthSelect.addEventListener("change", async () => {
     selectedMonthKey = el.analyticsMonthSelect.value;
+    if (apiReady) {
+      try {
+        budget = await fetchBudget(selectedMonthKey);
+      } catch {
+        toast("Could not load budget for this month.", "error");
+      }
+    }
     renderSummary();
     renderAnalytics();
   });
@@ -798,15 +894,31 @@
   }
 
   /* ─── Init ───────────────────────────────────────────────────── */
-  function init() {
-    expenses = loadExpenses();
-    budget   = loadBudget();
+  async function init() {
     selectedMonthKey = currentMonthKey();
-
     buildCategoryPills();
     setDefaultDate();
     el.form.addEventListener("submit", onSubmit);
-    renderAll();
+
+    setApiLoading(true);
+    setApiError(false);
+    apiReady = false;
+
+    try {
+      const [loadedExpenses, loadedBudget] = await Promise.all([
+        fetchExpenses(),
+        fetchBudget(selectedMonthKey),
+      ]);
+      expenses = loadedExpenses;
+      budget = loadedBudget;
+      apiReady = true;
+      setApiLoading(false);
+      renderAll();
+    } catch {
+      setApiLoading(false);
+      setApiError(true);
+      toast("Cannot reach RupeeRadar API. Start the backend with npm run dev in project2-backend.", "error");
+    }
   }
 
   init();

@@ -1,8 +1,6 @@
 const allowedCategories = ["Food", "Transport", "Shopping", "Bills", "Health", "Other"];
 
-let nextId = 1;
-/** @type {Array<{id:number, amount:number, category:string, date:string, note:string}>} */
-let expenses = [];
+const expensesRepository = require("../db/expensesRepository");
 
 function httpError(status, message, details) {
   const err = new Error(message);
@@ -21,7 +19,6 @@ function getCurrentMonthKey() {
 }
 
 function monthKeyFromIsoDate(isoDate) {
-  // isoDate expected to be "YYYY-MM-DD"
   return isoDate.slice(0, 7);
 }
 
@@ -32,12 +29,10 @@ function isIsoDate(dateStr) {
 function validateExpensePayload(body) {
   const errors = [];
 
-  // Gatekeeper: ensure body is an object
   if (!body || typeof body !== "object") {
     return { ok: false, errors: ["Request body must be a JSON object."] };
   }
 
-  // amount (number > 0)
   let amount;
   if (typeof body.amount === "number") amount = body.amount;
   else amount = typeof body.amount === "string" ? Number(body.amount) : NaN;
@@ -45,20 +40,16 @@ function validateExpensePayload(body) {
     errors.push("amount must be a number greater than 0.");
   }
 
-  // category
   const category = typeof body.category === "string" ? body.category.trim() : "";
   if (!category) errors.push("category is required.");
   else if (!allowedCategories.includes(category)) errors.push("category is not allowed.");
 
-  // date (YYYY-MM-DD)
   const date = typeof body.date === "string" ? body.date.trim() : "";
   if (!isIsoDate(date)) errors.push("date must be in YYYY-MM-DD format.");
   else {
     const d = new Date(`${date}T00:00:00`);
     if (Number.isNaN(d.getTime())) errors.push("date must be a valid calendar date.");
 
-    // Lightweight semantic validation: disallow dates too far in the future.
-    // (This can be relaxed later, but it's enough to show "gatekeeper" behavior.)
     const now = new Date();
     const maxFuture = new Date(now);
     maxFuture.setDate(now.getDate() + 365);
@@ -67,7 +58,6 @@ function validateExpensePayload(body) {
     }
   }
 
-  // note (optional)
   const note = typeof body.note === "string" ? body.note : "";
   if (note.length > 200) errors.push("note must be 200 characters or less.");
 
@@ -95,7 +85,6 @@ function parseMonthQuery(month) {
 }
 
 function normalizeAndValidateMonth(month) {
-  // If month not provided => "all months"
   const parsed = parseMonthQuery(month);
   if (parsed === undefined) return undefined;
   if (parsed === null) return null;
@@ -109,65 +98,35 @@ function listExpenses({ month, category } = {}) {
     throw httpError(400, "Invalid month filter", { month });
   }
 
-  let result = [...expenses];
-
-  // newest first
-  result.sort((a, b) => {
-    // date first, then id
-    if (a.date === b.date) return b.id - a.id;
-    return b.date.localeCompare(a.date);
-  });
-
-  if (monthKey !== undefined) {
-    result = result.filter((e) => monthKeyFromIsoDate(e.date) === monthKey);
-  }
-
   if (category !== undefined) {
     if (typeof category !== "string" || !allowedCategories.includes(category.trim())) {
       throw httpError(400, "Invalid category filter", { category });
     }
-    result = result.filter((e) => e.category === category.trim());
   }
 
-  return result;
+  const normalizedCategory =
+    category === undefined ? undefined : category.trim();
+
+  return expensesRepository.listExpenses({
+    month: monthKey,
+    category: normalizedCategory,
+  });
 }
 
 function createExpense(value) {
-  const expense = {
-    id: nextId++,
-    amount: value.amount,
-    category: value.category,
-    date: value.date,
-    note: value.note || "",
-  };
-
-  // Store newest first (optional); ordering is enforced in listExpenses anyway.
-  expenses.push(expense);
-  return expense;
+  return expensesRepository.createExpense(value);
 }
 
 function getExpenseById(id) {
-  return expenses.find((e) => e.id === id) || null;
+  return expensesRepository.getExpenseById(id);
 }
 
 function updateExpenseById(id, value) {
-  const idx = expenses.findIndex((e) => e.id === id);
-  if (idx === -1) return null;
-
-  expenses[idx] = {
-    id,
-    amount: value.amount,
-    category: value.category,
-    date: value.date,
-    note: value.note || "",
-  };
-  return expenses[idx];
+  return expensesRepository.updateExpenseById(id, value);
 }
 
 function deleteExpenseById(id) {
-  const before = expenses.length;
-  expenses = expenses.filter((e) => e.id !== id);
-  return expenses.length !== before;
+  return expensesRepository.deleteExpenseById(id);
 }
 
 module.exports = {
@@ -181,4 +140,3 @@ module.exports = {
   validateExpensePayload,
   parseMonthQuery,
 };
-

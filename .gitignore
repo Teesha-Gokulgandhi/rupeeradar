@@ -31,3 +31,6 @@ coverage/
 
 # Optional local overrides
 *.local
+
+# SQLite database files
+*.db

@@ -1,21 +1,30 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 
+const { initDatabase } = require("./db/connection");
 const expensesRouter = require("./routes/expenses");
+const budgetsRouter = require("./routes/budgets");
+
+initDatabase();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: "50kb" }));
 
-app.use("/expenses", expensesRouter);
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true, db: "connected" });
+});
 
-// 404 (unknown route)
+app.use("/expenses", expensesRouter);
+app.use("/budgets", budgetsRouter);
+
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// Central error handler (500 + malformed JSON -> 400)
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   if (err && (err.type === "entity.parse.failed" || err.status === 400)) {
@@ -25,7 +34,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Keep 500 responses generic; log details for debugging.
   // eslint-disable-next-line no-console
   console.error(err);
   res.status(500).json({ error: "Internal Server Error" });
@@ -36,4 +44,3 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`RupeeRadar API listening on http://localhost:${PORT}`);
 });
-

@@ -304,6 +304,16 @@
             </button>
           </div>
 
+          <p id="apiLoadingState" class="empty-state empty-state--center">
+            Loading expenses…
+          </p>
+
+          <p id="apiErrorState" class="empty-state empty-state--center" hidden>
+            <span class="empty-icon" aria-hidden="true">⚠</span><br />
+            Cannot reach RupeeRadar API.<br />
+            Start the backend with <code>npm run dev</code> in <code>project2-backend</code>.
+          </p>
+
           <p id="emptyState" class="empty-state empty-state--center" hidden>
             <span class="empty-icon" aria-hidden="true">🌿</span><br />
             No expenses yet.<br />Add your first one above!

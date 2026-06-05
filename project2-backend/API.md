@@ -190,3 +190,98 @@ HTTP 400:
 }
 ```
 
+---
+
+## GET `/health`
+
+Health check for API and database connectivity.
+
+### Success Response
+
+HTTP 200:
+
+```json
+{ "ok": true, "db": "connected" }
+```
+
+---
+
+## GET `/budgets/:monthKey`
+
+Retrieves the monthly budget for a given month.
+
+### Path Parameters
+
+- `monthKey`: `YYYY-MM` (example: `2026-06`)
+
+### Success Response
+
+HTTP 200:
+
+```json
+{
+  "monthKey": "2026-06",
+  "amount": 15000
+}
+```
+
+If no budget is set for the month, `amount` is `0`.
+
+### Invalid month key
+
+HTTP 400:
+
+```json
+{
+  "error": "Bad Request",
+  "details": { "message": "Invalid month key. Use YYYY-MM." }
+}
+```
+
+---
+
+## PUT `/budgets/:monthKey`
+
+Creates or updates the monthly budget for a given month.
+
+### Path Parameters
+
+- `monthKey`: `YYYY-MM`
+
+### Request Body
+
+Content-Type: `application/json`
+
+```json
+{
+  "amount": 15000
+}
+```
+
+Validation rules:
+- `amount` must be a number >= 0
+
+### Success Response
+
+HTTP 200:
+
+```json
+{
+  "monthKey": "2026-06",
+  "amount": 15000
+}
+```
+
+### Validation Error Response
+
+HTTP 400:
+
+```json
+{
+  "error": "Bad Request",
+  "details": {
+    "errors": ["amount must be a number greater than or equal to 0."]
+  }
+}
+```
+
