@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RupeeRadar">
+  <defs>
+    <linearGradient id="rrRadar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a9fd4"/>
+      <stop offset="100%" stop-color="#2a6f97"/>
+    </linearGradient>
+    <linearGradient id="rrCoin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2ecc9a"/>
+      <stop offset="100%" stop-color="#1a7f5a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#f4f9fc"/>
+  <circle cx="32" cy="32" r="26" fill="none" stroke="url(#rrRadar)" stroke-width="2" opacity=".3"/>
+  <circle cx="32" cy="32" r="18" fill="none" stroke="url(#rrRadar)" stroke-width="2" opacity=".55"/>
+  <path d="M32 32 L32 8 A24 24 0 0 1 50 20 Z" fill="url(#rrRadar)" opacity=".4"/>
+  <circle cx="32" cy="32" r="12" fill="url(#rrCoin)"/>
+  <text x="32" y="38" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="16" font-weight="700" fill="#fff">₹</text>
+  <circle cx="48" cy="16" r="4" fill="#2ecc9a"/>
+</svg>
